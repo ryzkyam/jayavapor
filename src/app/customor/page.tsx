@@ -2,61 +2,83 @@
 
 import { useState } from "react";
 
-export default function CustomerResponsivePage() {
+export default function CustomerHomePage() {
+  const [points] = useState(12400);
+
   return (
-    <div className="min-h-screen bg-[#060708] text-[#f3f4f6]">
+    <div className="min-h-screen bg-[#0b0c0e] text-[#f3f4f6] font-sans p-4 pb-24">
       
-      {/* 
-         LAYOUT RESPONSIVE:
-         - Mobile: Pakai grid tunggal (stack)
-         - Desktop (lg): Pakai grid 3 kolom (Sidebar | Main | Stats/Cart) 
-      */}
-      <div className="lg:grid lg:grid-cols-[280px_1fr_350px] min-h-screen">
-        
-        {/* SIDEBAR (Hanya muncul di Desktop) */}
-        <aside className="hidden lg:flex flex-col border-r border-gray-900 bg-[#0e1013] p-8">
-           <h1 className="text-amber-500 font-bold tracking-widest text-sm uppercase mb-12">Jaya Vapor</h1>
-           <nav className="space-y-6 text-xs uppercase tracking-widest text-gray-400">
-             {["Dashboard", "Catalog", "Rewards", "Profile"].map(item => (
-               <div key={item} className="cursor-pointer hover:text-white transition">{item}</div>
-             ))}
-           </nav>
-        </aside>
+      {/* Header Profile */}
+      <header className="flex justify-between items-center mb-8">
+        <div>
+          <p className="text-[10px] uppercase tracking-widest text-gray-500">Welcome back,</p>
+          <h2 className="text-lg font-medium">Budi Santoso</h2>
+        </div>
+        <div className="w-10 h-10 rounded-full border border-gray-800 flex items-center justify-center text-xs font-bold bg-[#0e1013]">BS</div>
+      </header>
 
-        {/* MAIN CONTENT (Responsive) */}
-        <main className="p-6 md:p-12 overflow-y-auto">
-           {/* Header & Stats (Tetap rapi di semua layar) */}
-           <header className="mb-12">
-             <h2 className="text-2xl font-light">Budi Santoso</h2>
-             <p className="text-gray-500 text-xs uppercase tracking-widest">Platinum Member</p>
-           </header>
-
-           {/* Grid Produk: Mobile 2 kol, Desktop 4 kol */}
-           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-4">
-              {[1,2,3,4,5,6,7,8].map(i => (
-                <div key={i} className="bg-[#0e1013] border border-gray-900 p-4 rounded hover:border-amber-500/30 transition">
-                  <div className="aspect-square bg-[#121418] mb-4"></div>
-                  <p className="text-xs">Fruity Series #{i}</p>
-                </div>
-              ))}
-           </div>
-        </main>
-
-        {/* SIDEBAR KANAN / CART (Muncul di Desktop, jadi drawer/fixed di Mobile) */}
-        <aside className="border-l border-gray-900 bg-[#0e1013] p-8 hidden lg:block">
-           <h3 className="text-xs uppercase tracking-widest text-gray-500 mb-8">Points Summary</h3>
-           <div className="bg-amber-500/5 border border-amber-500/30 p-6 rounded">
-              <p className="text-3xl font-light text-amber-500">12,400</p>
-              <p className="text-[10px] text-gray-400 uppercase">Available Points</p>
-           </div>
-        </aside>
-
+      {/* Member Card - Mengikuti tema premium */}
+      <div className="bg-[#0e1013] border border-gray-900 p-6 rounded-lg mb-8 relative overflow-hidden">
+        <div className="absolute top-4 right-4 text-amber-500/20">⚡</div>
+        <p className="text-[9px] uppercase tracking-widest text-gray-500 mb-1">Tier</p>
+        <h3 className="text-amber-500 font-bold mb-6 flex items-center gap-2">
+          ★ Platinum
+        </h3>
+        <p className="text-[9px] uppercase tracking-widest text-gray-500">Jaya Vapor Points</p>
+        <p className="text-3xl font-light tracking-tight">{points.toLocaleString()} <span className="text-sm text-gray-600">Pts</span></p>
+        <p className="text-[10px] text-gray-600 mt-4 tracking-widest">ID: JV-9821</p>
       </div>
 
-      {/* BOTTOM NAV (Hanya muncul di Mobile) */}
-      <nav className="lg:hidden fixed bottom-0 w-full bg-[#0e1013] border-t border-gray-900 flex justify-around p-4 text-[10px] uppercase">
-        {["Home", "Shop", "Rewards", "Profile"].map(item => (
-          <div key={item} className="text-gray-500">{item}</div>
+      {/* Quick Actions */}
+      <div className="grid grid-cols-3 gap-4 mb-8">
+        {["Redeem", "Catalog", "My Flavors"].map((item) => (
+          <div key={item} className="bg-[#0e1013] border border-gray-900 p-4 rounded text-center hover:border-amber-500/30 transition">
+            <div className="text-amber-500 mb-2">○</div>
+            <p className="text-[10px] uppercase tracking-widest text-gray-400">{item}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* For You Section */}
+      <section className="mb-8">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-sm font-medium uppercase tracking-widest text-white">For You (Fruity)</h3>
+          <button className="text-[10px] text-amber-500 uppercase tracking-widest">See All</button>
+        </div>
+        
+        <div className="space-y-3">
+          {[
+            { name: "Fruity Series", price: 110000, pts: 110 },
+            { name: "Iceberg Mango", price: 120000, pts: 120 },
+            { name: "Vaporesso XROS 4", price: 350000, pts: 350 },
+          ].map((item, i) => (
+            <div key={i} className="bg-[#0e1013] border border-gray-900 p-4 rounded flex items-center justify-between">
+              <div>
+                <p className="text-xs font-medium">{item.name} (30ml)</p>
+                <p className="text-xs text-amber-500">Rp {item.price.toLocaleString()}</p>
+              </div>
+              <div className="text-[9px] border border-gray-800 px-2 py-1 text-gray-500">+{item.pts} pts</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Promo Section */}
+      <div className="border border-amber-500/30 bg-amber-500/5 p-6 rounded-lg text-center">
+        <p className="text-[10px] uppercase tracking-widest text-amber-500 mb-2">Promo Khusus Anda!</p>
+        <p className="text-[11px] text-gray-400 mb-4 leading-relaxed">Tukarkan 2000 poin dengan diskon 20% untuk pembelian liquid fruity apapun minggu ini.</p>
+        <button className="w-full border border-amber-500 py-3 text-[10px] font-bold uppercase tracking-widest hover:bg-amber-500 hover:text-black transition">
+          Claim Promo
+        </button>
+      </div>
+
+      {/* Bottom Navigation */}
+      <nav className="fixed bottom-0 left-0 w-full bg-[#0e1013] border-t border-gray-900 flex justify-around p-4 text-[9px] uppercase tracking-widest text-gray-500">
+        {["Home", "Shop", "QR", "Rewards", "Profile"].map((nav) => (
+          <div key={nav} className={`text-center ${nav === "Home" ? "text-amber-500" : ""}`}>
+            <div className="mb-1">{nav === "QR" ? "⊞" : "○"}</div>
+            {nav}
+          </div>
         ))}
       </nav>
     </div>

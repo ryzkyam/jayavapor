@@ -18,78 +18,160 @@ export default async function CrmPage() {
       console.error("Gagal melakukan blast:", err);
     }
   }
+return (
+  <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-black text-slate-100 p-6 md:p-10">
+    <div className="max-w-4xl mx-auto">
 
-  return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 p-8">
-      <div className="max-w-3xl mx-auto">
-        {/* Header */}
-        <div className="mb-8 border-b border-gray-800 pb-4">
-          <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-indigo-500">
-            Jaya Vapor — CRM Blast Engine
-          </h1>
-          <p className="text-gray-400 mt-2">
-            Sistem Segmentasi Pelanggan Otomatis & Penyiaran Promo via Bot Telegram Resmi
-          </p>
+      {/* Header */}
+      <div className="mb-10">
+        <div className="inline-flex items-center gap-2 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-xs uppercase tracking-[0.2em] text-emerald-400">
+          Telegram CRM Engine
         </div>
 
-        {/* Form Container */}
-        <form action={handleBlast} className="bg-gray-900 border border-gray-800 rounded-xl p-6 space-y-6 shadow-2xl">
-          
-          {/* Input 1: Pilihan Segmentasi Preferensi */}
+        <h1 className="mt-4 text-3xl md:text-4xl font-light tracking-tight text-slate-50">
+          Jaya Vapor CRM Blast Center
+        </h1>
+
+        <p className="mt-3 max-w-2xl text-sm leading-relaxed text-slate-400">
+          Kelola segmentasi pelanggan, personalisasi pesan promosi, dan
+          distribusikan notifikasi otomatis melalui Telegram Bot berdasarkan
+          preferensi pelanggan secara real-time.
+        </p>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3 mb-8">
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-5 backdrop-blur-sm">
+          <p className="text-xs uppercase tracking-widest text-slate-500">
+            Channel
+          </p>
+
+          <h3 className="mt-2 text-lg font-semibold text-emerald-400">
+            Telegram Bot
+          </h3>
+        </div>
+
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-5 backdrop-blur-sm">
+          <p className="text-xs uppercase tracking-widest text-slate-500">
+            Personalization
+          </p>
+
+          <h3 className="mt-2 text-lg font-semibold text-slate-100">
+            Dynamic Variables
+          </h3>
+        </div>
+
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-5 backdrop-blur-sm">
+          <p className="text-xs uppercase tracking-widest text-slate-500">
+            Segmentation
+          </p>
+
+          <h3 className="mt-2 text-lg font-semibold text-slate-100">
+            Preference-Based
+          </h3>
+        </div>
+      </div>
+
+      {/* Form */}
+      <form
+        action={handleBlast}
+        className="rounded-3xl border border-slate-800 bg-slate-900/50 p-8 backdrop-blur-xl shadow-2xl shadow-black/20"
+      >
+        <div className="space-y-8">
+
+          {/* Segment Selection */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
-              Target Segmentasi Pelanggan (Preferensi)
+            <label className="mb-3 block text-sm font-medium text-slate-300">
+              Target Segmentasi Pelanggan
             </label>
-            <select 
-              name="preference" 
+
+            <select
+              name="preference"
               required
-              className="w-full bg-gray-950 border border-gray-800 rounded-lg px-4 py-3 text-gray-200 focus:outline-none focus:border-blue-500 transition-colors"
+              className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-4 text-slate-100 outline-none transition-all focus:border-emerald-500"
             >
-              <option value="">-- Pilih Segmen Rasa / Device --</option>
-              <option value="FRUITY">FRUITY (Pecinta Liquid Dingin/Buah)</option>
-              <option value="CREAMY">CREAMY (Pecinta Liquid Manis/Kue)</option>
-              <option value="PODS">PODS User</option>
-              <option value="MOD">MOD User</option>
-              <option value="COIL_COTTON">Maintenance (Coil & Cotton)</option>
+              <option value="">-- Pilih Segmen Pelanggan --</option>
+
+              <option value="FRUITY">
+                FRUITY — Pecinta Liquid Buah & Dingin
+              </option>
+
+              <option value="CREAMY">
+                CREAMY — Pecinta Liquid Manis & Dessert
+              </option>
+
+              <option value="PODS">
+                PODS — Pengguna Pod System
+              </option>
+
+              <option value="MOD">
+                MOD — Pengguna Mod Device
+              </option>
+
+              <option value="COIL_COTTON">
+                COIL & COTTON — Pengguna Maintenance Kit
+              </option>
             </select>
           </div>
 
-          {/* Input 2: Template Teks Pesan */}
+          {/* Message */}
           <div>
-            <div className="flex justify-between items-center mb-2">
-              <label className="block text-sm font-medium text-gray-300">
+            <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <label className="text-sm font-medium text-slate-300">
                 Template Pesan Promosi
               </label>
-              <span className="text-xs text-gray-500 bg-gray-950 px-2 py-1 rounded border border-gray-800">
-                Gunakan <code className="text-blue-400">[nama]</code> untuk personalisasi nama
-              </span>
+
+              <div className="inline-flex w-fit items-center rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs text-emerald-400">
+                Gunakan [nama] untuk personalisasi
+              </div>
             </div>
+
             <textarea
               name="message"
               required
-              rows={6}
-              placeholder="Contoh: Halo bro [nama]! Ada liquid baru nih yang pas banget sama selera kamu. Mampir yuk ke Jaya Vapor hari ini dan dapatkan diskon khusus member..."
-              className="w-full bg-gray-950 border border-gray-800 rounded-lg px-4 py-3 text-gray-200 font-sans focus:outline-none focus:border-blue-500 transition-colors placeholder-gray-600"
+              rows={8}
+              placeholder="Contoh: Halo [nama]! Ada koleksi baru yang sesuai dengan preferensi kamu. Dapatkan promo spesial member hanya minggu ini di Jaya Vapor."
+              className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-4 text-slate-100 outline-none transition-all placeholder:text-slate-500 focus:border-emerald-500"
             />
           </div>
 
-          {/* Info Tambahan Akademis */}
-          <div className="p-4 bg-blue-950/30 border border-blue-900/50 rounded-lg">
-            <p className="text-xs text-blue-400 leading-relaxed">
-              💡 <strong>Catatan Pengujian Skripsi:</strong> Sistem ini akan memfilter database Supabase secara *real-time* sesuai kategori preferensi yang dipilih, mengonversi tag personalisasi nama, lalu menyiarkannya secara asinkron menggunakan protokol HTTP POST Telegram Bot API.
-            </p>
+          {/* Information Panel */}
+          <div className="rounded-2xl border border-emerald-500/10 bg-emerald-500/5 p-5">
+            <div className="flex items-start gap-3">
+              <div className="mt-0.5 text-emerald-400">
+                💡
+              </div>
+
+              <div>
+                <h4 className="text-sm font-medium text-emerald-400">
+                  Catatan Pengujian Skripsi
+                </h4>
+
+                <p className="mt-2 text-sm leading-relaxed text-slate-400">
+                  Sistem akan melakukan segmentasi pelanggan secara real-time
+                  berdasarkan preferensi pembelian yang tersimpan di database
+                  Supabase, mengganti variabel personalisasi seperti
+                  <span className="mx-1 rounded bg-slate-800 px-2 py-1 text-emerald-400">
+                    [nama]
+                  </span>
+                  dan mengirimkan notifikasi melalui Telegram Bot API secara
+                  asinkron.
+                </p>
+              </div>
+            </div>
           </div>
 
-          {/* Tombol Submit */}
+          {/* Submit */}
           <button
             type="submit"
-            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-medium py-3 rounded-lg shadow-lg hover:shadow-blue-500/20 transition-all cursor-pointer text-center"
+            className="w-full rounded-xl bg-emerald-500 py-4 text-sm font-semibold uppercase tracking-[0.2em] text-black transition-all duration-300 hover:bg-emerald-400 hover:shadow-lg hover:shadow-emerald-500/20"
           >
             Luncurkan Blast Telegram 🚀
           </button>
+        </div>
+      </form>
 
-        </form>
-      </div>
     </div>
-  );
+  </div>
+);
 }
