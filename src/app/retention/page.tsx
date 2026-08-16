@@ -282,7 +282,7 @@ export default function RetentionPage() {
                 <thead>
                   <tr className="border-b border-slate-800 bg-slate-950 text-slate-400 uppercase tracking-wider font-bold">
                     <th className="p-4">Nama Pelanggan</th>
-                    <th className="p-4">Tier & Preferensi</th>
+                    <th className="p-4">Preferensi</th>
                     <th className="p-4">Terakhir Belanja</th>
                     <th className="p-4">Status Retensi</th>
                     <th className="p-4 text-right">Aksi Penyelamatan</th>
@@ -301,7 +301,7 @@ export default function RetentionPage() {
                           <p className="text-[11px] text-slate-500 mt-0.5">ID: {customer.id}</p>
                         </td>
                         <td className="p-4">
-                          <span className="bg-slate-950 px-2 py-0.5 border border-slate-800 text-[10px] rounded text-slate-400 font-medium mr-1.5">{customer.tier}</span>
+
                           <span className="text-emerald-400 font-medium">{customer.preference}</span>
                         </td>
                         <td className="p-4">

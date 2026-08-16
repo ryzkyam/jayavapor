@@ -24,7 +24,6 @@ export default function DashboardPage() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
 
 
-
   // States form input murni sesuai ERD
   const [name, setName] = useState('');
   const [sku, setSku] = useState('');
@@ -164,34 +163,13 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-[#070b13] text-slate-100 font-sans flex">
       
       {/* SIDEBAR NAVIGATION */}
-      <aside className="w-64 min-h-screen bg-[#090f1c] border-r border-slate-900 p-6 flex flex-col justify-between hidden md:flex flex-shrink-0">
-        <div className="space-y-8">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center text-slate-950 font-black text-base">⚡</div>
-            <div>
-              <h2 className="text-sm font-bold text-white tracking-wide uppercase">Jaya Vapor</h2>
-              <p className="text-[10px] text-slate-500 font-medium">CRM & POS SYSTEM</p>
-            </div>
-          </div>
-
-          <nav className="space-y-1">
-            <span className="text-[10px] font-bold text-slate-600 uppercase tracking-wider block px-2 mb-2">Main Menu</span>
-            <a href="#" className="block px-3 py-2.5 rounded-xl text-xs font-medium text-slate-400 hover:bg-slate-900 hover:text-white transition">Dashboard</a>
-            <a href="#" className="block px-3 py-2.5 rounded-xl text-xs font-medium text-slate-400 hover:bg-slate-900 hover:text-white transition">Members</a>
-            <a href="#" className="block px-3 py-2.5 rounded-xl text-xs font-medium text-slate-400 hover:bg-slate-900 hover:text-white transition">Rewards & Points</a>
-            <a href="#" className="block px-3 py-2.5 rounded-xl text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/10 shadow-sm">Product Catalog</a>
-            <a href="#" className="block px-3 py-2.5 rounded-xl text-xs font-medium text-slate-400 hover:bg-slate-900 hover:text-white transition">POS Kasir</a>
-          </nav>
-        </div>
-        <div className="text-[10px] text-slate-600 font-mono px-2">v0.1.0</div>
-      </aside>
-
+  
       {/* CONTAINER CONTENT */}
       <main className="flex-grow flex flex-col min-w-0">
         <header className="border-b border-slate-900 bg-[#090f1c]/50 backdrop-blur px-6 py-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
           <div>
             <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest block mb-0.5">Inventory Management</span>
-            <h1 className="text-xl font-extrabold tracking-tight text-white">Katalog Operasional Produk</h1>
+            <h1 className="text-xl font-extrabold tracking-tight text-white">CATALOG PRODUK </h1>
           </div>
           
           <button 

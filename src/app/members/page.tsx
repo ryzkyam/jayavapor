@@ -9,7 +9,6 @@ interface CustomerMember {
   name: string;
   telegramChatId?: string;
   points?: number;
-  tier?: string;
   preference?: string;
   createdAt?: string;
 }
@@ -200,25 +199,19 @@ export default function MembersPage() {
       </div>
 
       {/* STATS */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5 backdrop-blur-sm">
-          <p className="text-xs text-slate-500">Total Members</p>
-          <h2 className="text-2xl font-bold text-emerald-400">{members.length}</h2>
-        </div>
+  <div className="flex flex-col md:flex-row justify-center gap-4 mb-8">
+  {/* Card Total Members */}
+  <div className="w-full md:w-1/3 flex flex-col items-center justify-center text-center rounded-2xl border border-slate-800 bg-slate-900/40 p-5 backdrop-blur-sm">  
+    <p className="text-xs text-slate-500">Total Members</p>
+    <h2 className="text-2xl font-bold text-emerald-400">{members.length}</h2>
+  </div>
 
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5 backdrop-blur-sm">
-          <p className="text-xs text-slate-500">Active Today</p>
-          <h2 className="text-2xl font-bold text-slate-100">{Math.floor(members.length * 0.3)}</h2>
-        </div>
-
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5 backdrop-blur-sm">
-          <p className="text-xs text-slate-500">VIP Members</p>
-          <h2 className="text-2xl font-bold text-emerald-400">
-            {members.filter((m) => m.tier?.toUpperCase() === "VIP").length}
-          </h2>
-        </div>
-      </div>
-
+  {/* Card Active Today */}
+  <div className="w-full md:w-1/3 flex flex-col items-center justify-center text-center rounded-2xl border border-slate-800 bg-slate-900/40 p-5 backdrop-blur-sm">
+    <p className="text-xs text-slate-500">Active Today</p>
+    <h2 className="text-2xl font-bold text-slate-100">{Math.floor(members.length * 0.3)}</h2>
+  </div>
+</div>
       {/* GRID LIST MEMBER */}
       {isLoading ? (
         <div className="text-center text-slate-500 py-20 animate-pulse text-sm tracking-wider">
@@ -249,9 +242,7 @@ export default function MembersPage() {
                   <h3 className="font-semibold text-lg truncate max-w-[150px] text-slate-100">
                     {m.name}
                   </h3>
-                  <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-medium border border-emerald-500/10 uppercase">
-                    {m.tier || "REGULAR"}
-                  </span>
+                 
                 </div>
 
                 <div className="space-y-1.5 mb-5">
@@ -272,12 +263,7 @@ export default function MembersPage() {
                       {m.points || 0} <span className="text-xs font-normal text-slate-500">Pts</span>
                     </p>
                   </div>
-                  <Link
-                    href={`/member/${m.id}`}
-                    className="text-xs text-slate-400 hover:text-emerald-400 transition-all"
-                  >
-                    Detail Member →
-                  </Link>
+                 
                 </div>
               </div>
             ))

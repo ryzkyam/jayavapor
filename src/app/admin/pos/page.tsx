@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
+ 
 import Link from "next/link";
 
 interface Product {
@@ -275,7 +276,7 @@ export default function POSPage() {
   }
 
   const menus = [
-    { label: "Dashboard", href: "/dashboard" },
+     { label: "Tambah Produk", href: "/dashboard" },
     { label: "Members", href: "/members" },
     { label: "Rewards & Points", href: "/rewards" },
     { label: "Product Catalog", href: "/catalog" },
@@ -284,6 +285,7 @@ export default function POSPage() {
     { label: "Riwatat Transaksi", href: "/admin/transactions" },
     { label: "Retention", href: "/retention" },
     { label: "Settings", href: "/settings" },
+     
   ];
 
   return (
