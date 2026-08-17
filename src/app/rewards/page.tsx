@@ -107,52 +107,7 @@ async function fetchInitialData() {
   }, [members, searchMember]);
 
   // FUNGSI MANIPULASI/SUNTIK POIN MANUAL
-  async function handleAddPointsManual(e: React.FormEvent) {
-    e.preventDefault();
-    if (!selectedMemberId || !currentSelectedMember) {
-      return triggerAlert("Pilih member terlebih dahulu!", "error");
-    }
-    if (!pointsToAdd || pointsToAdd <= 0) {
-      return triggerAlert("Masukkan jumlah poin yang valid (> 0)!", "error");
-    }
-
-    setIsProcessing(true);
-    try {
-      const totalPoinBaru = currentSelectedMember.points + Number(pointsToAdd);
-
-      const { error: updateError } = await supabase
-        .from("Customer")
-        .update({ points: totalPoinBaru, updatedAt: new Date().toISOString() })
-        .eq("id", selectedMemberId);
-
-      if (updateError) throw updateError;
-
-      const generatedLogId = "log_" + Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
-      const { error: logError } = await supabase
-        .from("PointLog")
-        .insert([
-          {
-            id: generatedLogId,
-            customerId: selectedMemberId,
-            transactionId: null,
-            points: Number(pointsToAdd),
-            action: "EARNED",
-            description: `Suntik poin manual oleh Admin/Kasir`,
-          }
-        ]);
-
-      if (logError) console.warn("Gagal mencatat log:", logError);
-
-      triggerAlert(`Sukses menambah +${pointsToAdd} Pts ke member ${currentSelectedMember.name}!`, "success");
-      setPointsToAdd("");
-      fetchInitialData();
-    } catch (err: any) {
-      console.error(err);
-      triggerAlert(`Gagal menambahkan poin: ${err.message}`, "error");
-    } finally {
-      setIsProcessing(false);
-    }
-  }
+ 
 
   // ⚡ FUNGSI REDEEM REWARD (DENGAN SINKRONISASI STOK KE DATABASE SUPABASE)
   async function handleRedeemReward(reward: RewardItem) {
@@ -308,30 +263,7 @@ async function fetchInitialData() {
           </div>
 
           {/* FORM SUNTIK POIN MANUAL */}
-          {currentSelectedMember && (
-            <div className="border-t border-slate-800/80 pt-5 animate-fade-in">
-              <h3 className="text-xs uppercase tracking-wider text-emerald-400 font-bold mb-3">➕ Suntik / Tambah Poin Manual</h3>
-              <form onSubmit={handleAddPointsManual} className="flex gap-2">
-                <input
-                  type="number"
-                  min="1"
-                  required
-                  placeholder="Contoh: 10"
-                  value={pointsToAdd}
-                  onChange={(e) => setPointsToAdd(e.target.value === "" ? "" : Number(e.target.value))}
-                  className="flex-1 rounded-xl border border-slate-800 bg-slate-950 px-4 py-2.5 text-sm text-slate-100 outline-none focus:border-emerald-500 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                />
-                <button
-                  type="submit"
-                  disabled={isProcessing}
-                  className="rounded-xl bg-emerald-500 text-black px-4 py-2.5 text-xs font-bold uppercase tracking-wider hover:bg-emerald-400 transition disabled:opacity-50"
-                >
-                  Tambah
-                </button>
-              </form>
-              <p className="text-[10px] text-slate-500 mt-1.5">Aksi ini otomatis terekam ke audit log database (`PointLog`).</p>
-            </div>
-          )}
+     
         </div>
 
         {/* KATALOG HADIAH */}
