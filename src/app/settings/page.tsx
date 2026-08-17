@@ -10,11 +10,14 @@ import {
   Info,
   Save,
   CheckCircle2,
-  Bell,
-  ShieldCheck,
   RefreshCw,
+  ShieldCheck,
   LucideIcon,
+  Plus,
+  Trash2,
+  Gift,
 } from 'lucide-react';
+import { supabase } from "@/lib/supabase";
 
 // --- TYPES ---
 type TabType = 'store' | 'pos' | 'membership' | 'telegram' | 'account' | 'system';
@@ -43,6 +46,13 @@ interface MembershipData {
   minRedemptionPoints: number;
 }
 
+interface LoyaltyReward {
+  id: string;
+  name: string;
+  pointsRequired: number;
+  discountAmount: number;
+}
+
 interface TelegramData {
   enabled: boolean;
   botToken: string;
@@ -60,15 +70,41 @@ interface AccountData {
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<TabType>('store');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   // --- DUMMY STATES ---
   const [store, setStore] = useState<StoreData>({
-    name: 'Kopi Nusantara POS',
+    name: 'Jaya Vapor',
     phone: '081234567890',
     address: 'Jl. Sudirman No. 45, Jakarta Selatan',
-    receiptHeader: 'Selamat Datang di Kopi Nusantara!',
+    receiptHeader: 'Selamat Datang di Jaya Vapor!',
     receiptFooter: 'Terima kasih atas kunjungan Anda 🙏',
   });
+  React.useEffect(() => {
+  const fetchRewards = async () => {
+    const { data, error } = await supabase
+      .from("RewardCatalog")
+      .select("*");
+
+    if (!error && data) {
+      const mappedRewards: LoyaltyReward[] = data.map((item) => {
+        // Ekstrak nominal diskon dari deskripsi atau hitung
+        const match = item.description?.match(/\d[\d.]*/g);
+        const discountValue = match ? Number(match.join('').replace(/\./g, '')) : 0;
+
+        return {
+          id: item.id,
+          name: item.title,
+          pointsRequired: item.pointsRequired,
+          discountAmount: discountValue,
+        };
+      });
+      setRewards(mappedRewards);
+    }
+  };
+
+  fetchRewards();
+}, []);
 
   const [pos, setPos] = useState<PosData>({
     taxPercent: 11,
@@ -81,9 +117,20 @@ export default function SettingsPage() {
 
   const [membership, setMembership] = useState<MembershipData>({
     enabled: true,
-    spendForPoint: 10000, // Rp 10.000 = 1 Point
-    pointValue: 1000, // 1 Point = Rp 1.000
+    spendForPoint: 10000,
+    pointValue: 1000,
     minRedemptionPoints: 10,
+  });
+
+  const [rewards, setRewards] = useState<LoyaltyReward[]>([
+    { id: '1', name: 'Voucher Diskon Rp 10.000', pointsRequired: 10, discountAmount: 10000 },
+    { id: '2', name: 'Voucher Diskon Rp 50.000', pointsRequired: 45, discountAmount: 50000 },
+  ]);
+
+  const [newReward, setNewReward] = useState({
+    name: '',
+    pointsRequired: '',
+    discountAmount: '',
   });
 
   const [telegram, setTelegram] = useState<TelegramData>({
@@ -95,8 +142,8 @@ export default function SettingsPage() {
   });
 
   const [account, setAccount] = useState<AccountData>({
-    name: 'Admin Toko',
-    email: 'admin@kopinusantara.id',
+    name: 'Admin Jaya Vapor',
+    email: 'adminjayavapor@gmail.com',
     role: 'Owner / Administrator',
   });
 
@@ -106,16 +153,92 @@ export default function SettingsPage() {
     confirmPass: '',
   });
 
-  // --- HANDLER SIMPAN ---
-  const handleSave = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // Nanti di sini tinggal tambahkan query Supabase / API Call
-    // contoh: await supabase.from('settings').upsert(...)
+  // --- HANDLERS ---
+  const handleAddReward = () => {
+    if (!newReward.name || !newReward.pointsRequired || !newReward.discountAmount) {
+      showToast('Harap isi semua kolom penukaran poin!');
+      return;
+    }
 
-    showToast('Pengaturan berhasil disimpan!');
+    const item: LoyaltyReward = {
+      id: Date.now().toString(),
+      name: newReward.name,
+      pointsRequired: Number(newReward.pointsRequired),
+      discountAmount: Number(newReward.discountAmount),
+    };
+
+    setRewards([...rewards, item]);
+    setNewReward({ name: '', pointsRequired: '', discountAmount: '' });
+    showToast('Katalog penukaran poin berhasil ditambahkan!');
   };
 
+  const handleDeleteReward = async (id: string) => {
+    try {
+      setRewards((prev) => prev.filter((r) => r.id !== id));
+
+      if (id && id.length > 5) {
+        const { error } = await supabase
+          .from("RewardCatalog")
+          .delete()
+          .eq("id", id);
+
+        if (error) console.error("Gagal hapus dari Supabase:", error.message);
+      }
+
+      showToast('Katalog penukaran berhasil dihapus!');
+    } catch (err: any) {
+      showToast(`Gagal menghapus: ${err.message}`);
+    }
+  };
+
+  // --- HANDLER SIMPAN (SINKRONISASI KE SUPABASE) ---
+const handleSave = async (e: React.FormEvent) => {
+  e.preventDefault();
+  setIsSaving(true);
+
+  try {
+    // 1. Ambil seluruh ID yang ada di Supabase saat ini
+    const { data: existingData, error: fetchError } = await supabase
+      .from("RewardCatalog")
+      .select("id");
+
+    if (fetchError) throw fetchError;
+
+    // 2. Hapus semua data lama jika ada
+    if (existingData && existingData.length > 0) {
+      const idsToDelete = existingData.map((item) => item.id);
+      const { error: deleteError } = await supabase
+        .from("RewardCatalog")
+        .delete()
+        .in("id", idsToDelete);
+
+      if (deleteError) throw deleteError;
+    }
+
+    // 3. Masukkan data terbaru dari State UI
+    if (rewards.length > 0) {
+      const payload = rewards.map((r) => ({
+        title: r.name,
+        pointsRequired: Number(r.pointsRequired),
+        stock: 999,
+        description: `Diskon Potongan Langsung Rp ${Number(r.discountAmount).toLocaleString("id-ID")}`
+      }));
+
+      const { error: insertError } = await supabase
+        .from("RewardCatalog")
+        .insert(payload);
+
+      if (insertError) throw insertError;
+    }
+
+    showToast('Pengaturan & Katalog Hadiah berhasil disinkronkan!');
+  } catch (err: any) {
+    console.error("Save Error:", err);
+    showToast(`Gagal menyimpan: ${err.message || 'Error tidak diketahui'}`);
+  } finally {
+    setIsSaving(false);
+  }
+};
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => {
@@ -123,7 +246,6 @@ export default function SettingsPage() {
     }, 3000);
   };
 
-  // --- MENU ITEMS ---
   const menuItems: { id: TabType; label: string; icon: LucideIcon }[] = [
     { id: 'store', label: 'Informasi Toko', icon: Store },
     { id: 'pos', label: 'Pengaturan POS', icon: ShoppingCart },
@@ -134,60 +256,55 @@ export default function SettingsPage() {
   ];
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-8 font-sans">
-      {/* Toast Notification */}
+    <div className="p-6 space-y-6 bg-[#0B0F17] min-h-screen text-slate-100">
+      {/* TOAST NOTIFICATION */}
       {toastMessage && (
-        <div className="fixed top-5 right-5 z-50 flex items-center gap-3 bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-2xl transition-all duration-300 animate-bounce">
-          <CheckCircle2 className="w-5 h-5 text-emerald-200" />
-          <span className="font-medium text-sm">{toastMessage}</span>
+        <div className="fixed top-5 right-5 z-50 flex items-center gap-2 bg-[#10B981] text-white px-4 py-3 rounded-xl shadow-xl transition-all animate-bounce text-sm font-medium">
+          <CheckCircle2 className="w-5 h-5" />
+          <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* Header */}
-      <div className="max-w-6xl mx-auto mb-8">
-        <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-white">Pengaturan Sistem</h1>
-        <p className="text-sm text-slate-400 mt-1">Kelola preferensi toko, POS, integrasi, dan akun dalam satu tempat.</p>
+      {/* HEADER */}
+      <div>
+        <h1 className="text-2xl font-bold text-white tracking-tight">Pengaturan Sistem</h1>
+        <p className="text-slate-400 text-sm mt-1">Kelola konfigurasi toko, transaksi POS, membership, dan integrasi CRM.</p>
       </div>
 
-      {/* Main Grid Layout */}
-      <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-6">
-        
-        {/* Sidebar Menu */}
-        <div className="lg:col-span-1 space-y-2">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-2 shadow-lg">
-            {menuItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                    isActive
-                      ? 'bg-blue-600 text-white shadow-md shadow-blue-600/30'
-                      : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
-                  }`}
-                >
-                  <Icon className={`w-5 h-5 ${isActive ? 'text-white' : 'text-slate-400'}`} />
-                  <span>{item.label}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
+      <div className="flex flex-col md:flex-row gap-6">
+        {/* TAB NAVIGATION */}
+        <aside className="w-full md:w-64 space-y-1">
+          {menuItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all ${
+                  isActive
+                    ? 'bg-[#10B981] text-white shadow-lg shadow-emerald-900/20'
+                    : 'text-slate-400 hover:bg-[#161F2E] hover:text-white'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </aside>
 
-        {/* Content Card */}
-        <div className="lg:col-span-3">
-          <form onSubmit={handleSave} className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl relative">
-            
+        {/* CONTENT AREA */}
+        <div className="flex-1 bg-[#111726] border border-slate-800/80 rounded-2xl p-6 shadow-xl">
+          <form onSubmit={handleSave}>
             {/* 1. INFORMASI TOKO */}
             {activeTab === 'store' && (
               <div className="space-y-6">
                 <div>
                   <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                    <Store className="w-5 h-5 text-blue-400" /> Informasi Toko
+                    <Store className="w-5 h-5 text-[#10B981]" /> Informasi Profil Toko
                   </h2>
-                  <p className="text-xs text-slate-400 mt-1">Detail toko ini akan dicetak pada struk transaksi.</p>
+                  <p className="text-xs text-slate-400 mt-1">Detail ini akan dicetak pada struk fisik transaksi.</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -197,17 +314,16 @@ export default function SettingsPage() {
                       type="text"
                       value={store.name}
                       onChange={(e) => setStore({ ...store, name: e.target.value })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
+                      className="w-full bg-[#070913] border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#10B981]"
                     />
                   </div>
-
                   <div className="space-y-2">
-                    <label className="text-xs font-semibold text-slate-300">Nomor Telepon / WhatsApp</label>
+                    <label className="text-xs font-semibold text-slate-300">Nomor Telepon</label>
                     <input
                       type="text"
                       value={store.phone}
                       onChange={(e) => setStore({ ...store, phone: e.target.value })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
+                      className="w-full bg-[#070913] border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#10B981]"
                     />
                   </div>
                 </div>
@@ -218,7 +334,7 @@ export default function SettingsPage() {
                     rows={3}
                     value={store.address}
                     onChange={(e) => setStore({ ...store, address: e.target.value })}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
+                    className="w-full bg-[#070913] border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#10B981]"
                   />
                 </div>
 
@@ -229,17 +345,16 @@ export default function SettingsPage() {
                       type="text"
                       value={store.receiptHeader}
                       onChange={(e) => setStore({ ...store, receiptHeader: e.target.value })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
+                      className="w-full bg-[#070913] border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#10B981]"
                     />
                   </div>
-
                   <div className="space-y-2">
                     <label className="text-xs font-semibold text-slate-300">Pesan Footer Struk</label>
                     <input
                       type="text"
                       value={store.receiptFooter}
                       onChange={(e) => setStore({ ...store, receiptFooter: e.target.value })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
+                      className="w-full bg-[#070913] border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#10B981]"
                     />
                   </div>
                 </div>
@@ -251,144 +366,132 @@ export default function SettingsPage() {
               <div className="space-y-6">
                 <div>
                   <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                    <ShoppingCart className="w-5 h-5 text-blue-400" /> Pengaturan POS
+                    <ShoppingCart className="w-5 h-5 text-[#10B981]" /> Parameter Kasir & Pajak
                   </h2>
-                  <p className="text-xs text-slate-400 mt-1">Konfigurasi pajak, biaya layanan, dan perilaku kasir.</p>
+                  <p className="text-xs text-slate-400 mt-1">Atur persentase kalkulasi checkout dan sistem peringatan stok.</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-xs font-semibold text-slate-300">Pajak / PPN (%)</label>
+                    <label className="text-xs font-semibold text-slate-300">Pajak (PB1 / PPN %)</label>
                     <input
                       type="number"
                       value={pos.taxPercent}
                       onChange={(e) => setPos({ ...pos, taxPercent: Number(e.target.value) })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
+                      className="w-full bg-[#070913] border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#10B981]"
                     />
                   </div>
-
                   <div className="space-y-2">
                     <label className="text-xs font-semibold text-slate-300">Service Charge (%)</label>
                     <input
                       type="number"
                       value={pos.serviceChargePercent}
                       onChange={(e) => setPos({ ...pos, serviceChargePercent: Number(e.target.value) })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
+                      className="w-full bg-[#070913] border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#10B981]"
                     />
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-xs font-semibold text-slate-300">Metode Pembayaran Utama</label>
-                    <select
-                      value={pos.defaultPayment}
-                      onChange={(e) => setPos({ ...pos, defaultPayment: e.target.value })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
-                    >
-                      <option value="cash">Tunai (Cash)</option>
-                      <option value="qris">QRIS</option>
-                      <option value="debit">Kartu Debit/Kredit</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs font-semibold text-slate-300">Batas Minimal Peringatan Stok</label>
-                    <input
-                      type="number"
-                      value={pos.lowStockThreshold}
-                      onChange={(e) => setPos({ ...pos, lowStockThreshold: Number(e.target.value) })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="pt-2 space-y-4">
-                  <label className="flex items-center justify-between p-4 bg-slate-950 rounded-xl border border-slate-800/80 cursor-pointer">
-                    <div>
-                      <div className="text-sm font-medium text-slate-200">Cetak Struk Otomatis</div>
-                      <div className="text-xs text-slate-400">Otomatis mencetak struk saat pembayaran dikonfirmasi.</div>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={pos.autoPrintReceipt}
-                      onChange={(e) => setPos({ ...pos, autoPrintReceipt: e.target.checked })}
-                      className="w-5 h-5 accent-blue-600 rounded cursor-pointer"
-                    />
-                  </label>
-
-                  <label className="flex items-center justify-between p-4 bg-slate-950 rounded-xl border border-slate-800/80 cursor-pointer">
-                    <div>
-                      <div className="text-sm font-medium text-slate-200">Notifikasi Stok Menipis</div>
-                      <div className="text-xs text-slate-400">Tampilkan peringatan jika stok produk hampir habis.</div>
-                    </div>
-                    <input
-                      type="checkbox"
-                      checked={pos.enableStockAlert}
-                      onChange={(e) => setPos({ ...pos, enableStockAlert: e.target.checked })}
-                      className="w-5 h-5 accent-blue-600 rounded cursor-pointer"
-                    />
-                  </label>
+                <div className="space-y-2">
+                  <label className="text-xs font-semibold text-slate-300">Batas Alert Stok Menipis</label>
+                  <input
+                    type="number"
+                    value={pos.lowStockThreshold}
+                    onChange={(e) => setPos({ ...pos, lowStockThreshold: Number(e.target.value) })}
+                    className="w-full bg-[#070913] border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#10B981]"
+                  />
                 </div>
               </div>
             )}
 
-            {/* 3. MEMBERSHIP */}
+            {/* 3. MEMBERSHIP & LOYALTY */}
             {activeTab === 'membership' && (
               <div className="space-y-6">
                 <div>
                   <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                    <Award className="w-5 h-5 text-blue-400" /> Program Membership
+                    <Award className="w-5 h-5 text-[#10B981]" /> Program Poin & Loyalty
                   </h2>
-                  <p className="text-xs text-slate-400 mt-1">Atur perolehan dan penukaran poin pelanggan.</p>
+                  <p className="text-xs text-slate-400 mt-1">Konfigurasi rasio perolehan poin belanja pelanggan.</p>
                 </div>
 
-                <label className="flex items-center justify-between p-4 bg-slate-950 rounded-xl border border-slate-800/80 cursor-pointer">
-                  <div>
-                    <div className="text-sm font-medium text-slate-200">Aktifkan Program Poin Loyalty</div>
-                    <div className="text-xs text-slate-400">Pelanggan mengumpulkan poin dari setiap belanja.</div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-slate-300">Kelipatan Belanja Untuk 1 Poin (Rp)</label>
+                    <input
+                      type="number"
+                      value={membership.spendForPoint}
+                      onChange={(e) => setMembership({ ...membership, spendForPoint: Number(e.target.value) })}
+                      className="w-full bg-[#070913] border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#10B981]"
+                    />
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={membership.enabled}
-                    onChange={(e) => setMembership({ ...membership, enabled: e.target.checked })}
-                    className="w-5 h-5 accent-blue-600 rounded cursor-pointer"
-                  />
-                </label>
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-slate-300">Nilai Tukar Per Poin (Rp)</label>
+                    <input
+                      type="number"
+                      value={membership.pointValue}
+                      onChange={(e) => setMembership({ ...membership, pointValue: Number(e.target.value) })}
+                      className="w-full bg-[#070913] border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#10B981]"
+                    />
+                  </div>
+                </div>
 
-                {membership.enabled && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-                    <div className="space-y-2">
-                      <label className="text-xs font-semibold text-slate-300">Belanja Minimal (Rp) = 1 Poin</label>
+                {/* KATALOG REWARD */}
+                <div className="pt-4 border-t border-slate-800 space-y-4">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Gift className="w-4 h-4 text-[#10B981]" /> Katalog Penukaran Poin
+                  </h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-[#070913] p-4 rounded-xl border border-slate-800">
+                    <input
+                      type="text"
+                      placeholder="Nama Hadiah/Voucher"
+                      value={newReward.name}
+                      onChange={(e) => setNewReward({ ...newReward, name: e.target.value })}
+                      className="bg-[#111726] border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#10B981]"
+                    />
+                    <input
+                      type="number"
+                      placeholder="Poin Dibutuhkan"
+                      value={newReward.pointsRequired}
+                      onChange={(e) => setNewReward({ ...newReward, pointsRequired: e.target.value })}
+                      className="bg-[#111726] border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#10B981]"
+                    />
+                    <div className="flex gap-2">
                       <input
                         type="number"
-                        value={membership.spendForPoint}
-                        onChange={(e) => setMembership({ ...membership, spendForPoint: Number(e.target.value) })}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
+                        placeholder="Nominal Diskon (Rp)"
+                        value={newReward.discountAmount}
+                        onChange={(e) => setNewReward({ ...newReward, discountAmount: e.target.value })}
+                        className="w-full bg-[#111726] border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-[#10B981]"
                       />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-xs font-semibold text-slate-300">Nilai 1 Poin (Rp Diskon)</label>
-                      <input
-                        type="number"
-                        value={membership.pointValue}
-                        onChange={(e) => setMembership({ ...membership, pointValue: Number(e.target.value) })}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-xs font-semibold text-slate-300">Min. Poin Boleh Ditukar</label>
-                      <input
-                        type="number"
-                        value={membership.minRedemptionPoints}
-                        onChange={(e) => setMembership({ ...membership, minRedemptionPoints: Number(e.target.value) })}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
-                      />
+                      <button
+                        type="button"
+                        onClick={handleAddReward}
+                        className="bg-[#10B981] hover:bg-[#059669] text-white p-2 rounded-lg transition-all"
+                      >
+                        <Plus className="w-4 h-4" />
+                      </button>
                     </div>
                   </div>
-                )}
+
+                  <div className="space-y-2">
+                    {rewards.map((rw) => (
+                      <div key={rw.id} className="flex items-center justify-between p-3 bg-[#070913] border border-slate-800/60 rounded-xl text-xs">
+                        <div>
+                          <p className="font-semibold text-white">{rw.name}</p>
+                          <p className="text-slate-400">{rw.pointsRequired} Poin = Diskon Rp {rw.discountAmount.toLocaleString('id-ID')}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteReward(rw.id)}
+                          className="text-rose-400 hover:text-rose-300 p-1.5 transition-all"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             )}
 
@@ -397,77 +500,31 @@ export default function SettingsPage() {
               <div className="space-y-6">
                 <div>
                   <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                    <Send className="w-5 h-5 text-blue-400" /> Telegram CRM & Notification
+                    <Send className="w-5 h-5 text-[#10B981]" /> Integrasi Telegram Bot
                   </h2>
-                  <p className="text-xs text-slate-400 mt-1">Kirim ringkasan harian dan notifikasi stok langsung ke Telegram.</p>
+                  <p className="text-xs text-slate-400 mt-1">Kirim laporan harian dan alert stok otomatis ke grup Telegram.</p>
                 </div>
 
-                <label className="flex items-center justify-between p-4 bg-slate-950 rounded-xl border border-slate-800/80 cursor-pointer">
-                  <div>
-                    <div className="text-sm font-medium text-slate-200">Integrasi Telegram Active</div>
-                    <div className="text-xs text-slate-400">Hubungkan sistem POS dengan Telegram Bot API.</div>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-slate-300">Bot Token</label>
+                    <input
+                      type="text"
+                      value={telegram.botToken}
+                      onChange={(e) => setTelegram({ ...telegram, botToken: e.target.value })}
+                      className="w-full bg-[#070913] border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#10B981]"
+                    />
                   </div>
-                  <input
-                    type="checkbox"
-                    checked={telegram.enabled}
-                    onChange={(e) => setTelegram({ ...telegram, enabled: e.target.checked })}
-                    className="w-5 h-5 accent-blue-600 rounded cursor-pointer"
-                  />
-                </label>
-
-                {telegram.enabled && (
-                  <>
-                    <div className="space-y-4 pt-2">
-                      <div className="space-y-2">
-                        <label className="text-xs font-semibold text-slate-300">Telegram Bot Token</label>
-                        <input
-                          type="password"
-                          value={telegram.botToken}
-                          onChange={(e) => setTelegram({ ...telegram, botToken: e.target.value })}
-                          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500 font-mono"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-xs font-semibold text-slate-300">Telegram Group / Chat ID</label>
-                        <input
-                          type="text"
-                          value={telegram.chatId}
-                          onChange={(e) => setTelegram({ ...telegram, chatId: e.target.value })}
-                          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500 font-mono"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-3 pt-2">
-                      <label className="flex items-center justify-between p-4 bg-slate-950 rounded-xl border border-slate-800/80 cursor-pointer">
-                        <div>
-                          <div className="text-sm font-medium text-slate-200">Kirim Peringatan Stok Tipis</div>
-                          <div className="text-xs text-slate-400">Otomatis chat ke Telegram jika item melebihi threshold.</div>
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={telegram.notifyLowStock}
-                          onChange={(e) => setTelegram({ ...telegram, notifyLowStock: e.target.checked })}
-                          className="w-5 h-5 accent-blue-600 rounded cursor-pointer"
-                        />
-                      </label>
-
-                      <label className="flex items-center justify-between p-4 bg-slate-950 rounded-xl border border-slate-800/80 cursor-pointer">
-                        <div>
-                          <div className="text-sm font-medium text-slate-200">Kirim Laporan Omzet Harian</div>
-                          <div className="text-xs text-slate-400">Rangkuman penjualan dikirim setiap jam tutup toko.</div>
-                        </div>
-                        <input
-                          type="checkbox"
-                          checked={telegram.notifyDailyReport}
-                          onChange={(e) => setTelegram({ ...telegram, notifyDailyReport: e.target.checked })}
-                          className="w-5 h-5 accent-blue-600 rounded cursor-pointer"
-                        />
-                      </label>
-                    </div>
-                  </>
-                )}
+                  <div className="space-y-2">
+                    <label className="text-xs font-semibold text-slate-300">Chat ID / Group ID</label>
+                    <input
+                      type="text"
+                      value={telegram.chatId}
+                      onChange={(e) => setTelegram({ ...telegram, chatId: e.target.value })}
+                      className="w-full bg-[#070913] border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#10B981]"
+                    />
+                  </div>
+                </div>
               </div>
             )}
 
@@ -476,61 +533,58 @@ export default function SettingsPage() {
               <div className="space-y-6">
                 <div>
                   <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                    <User className="w-5 h-5 text-blue-400" /> Profil & Akun Pengguna
+                    <User className="w-5 h-5 text-[#10B981]" /> Profil Pengguna & Keamanan
                   </h2>
-                  <p className="text-xs text-slate-400 mt-1">Kelola informasi login dan kata sandi akun Anda.</p>
+                  <p className="text-xs text-slate-400 mt-1">Perbarui informasi kredensial login Anda.</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <label className="text-xs font-semibold text-slate-300">Nama Pengguna</label>
+                    <label className="text-xs font-semibold text-slate-300">Nama Lengkap</label>
                     <input
                       type="text"
                       value={account.name}
                       onChange={(e) => setAccount({ ...account, name: e.target.value })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
+                      className="w-full bg-[#070913] border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#10B981]"
                     />
                   </div>
-
                   <div className="space-y-2">
                     <label className="text-xs font-semibold text-slate-300">Email Login</label>
                     <input
                       type="email"
                       value={account.email}
                       onChange={(e) => setAccount({ ...account, email: e.target.value })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
+                      className="w-full bg-[#070913] border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#10B981]"
                     />
                   </div>
                 </div>
 
-                <div className="p-4 bg-slate-950/60 border border-slate-800 rounded-xl space-y-4">
-                  <h3 className="text-sm font-semibold text-slate-200">Ubah Kata Sandi</h3>
-                  
-                  <div className="space-y-3">
+                <div className="pt-4 border-t border-slate-800 space-y-4">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-[#10B981]" /> Ubah Kata Sandi
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <input
                       type="password"
-                      placeholder="Password saat ini"
+                      placeholder="Password Lama"
                       value={passwords.current}
                       onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
+                      className="bg-[#070913] border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#10B981]"
                     />
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <input
-                        type="password"
-                        placeholder="Password baru"
-                        value={passwords.newPass}
-                        onChange={(e) => setPasswords({ ...passwords, newPass: e.target.value })}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
-                      />
-                      <input
-                        type="password"
-                        placeholder="Konfirmasi password baru"
-                        value={passwords.confirmPass}
-                        onChange={(e) => setPasswords({ ...passwords, confirmPass: e.target.value })}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-slate-100 focus:outline-none focus:border-blue-500"
-                      />
-                    </div>
+                    <input
+                      type="password"
+                      placeholder="Password Baru"
+                      value={passwords.newPass}
+                      onChange={(e) => setPasswords({ ...passwords, newPass: e.target.value })}
+                      className="bg-[#070913] border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#10B981]"
+                    />
+                    <input
+                      type="password"
+                      placeholder="Konfirmasi Password Baru"
+                      value={passwords.confirmPass}
+                      onChange={(e) => setPasswords({ ...passwords, confirmPass: e.target.value })}
+                      className="bg-[#070913] border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:outline-none focus:border-[#10B981]"
+                    />
                   </div>
                 </div>
               </div>
@@ -541,52 +595,40 @@ export default function SettingsPage() {
               <div className="space-y-6">
                 <div>
                   <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                    <Info className="w-5 h-5 text-blue-400" /> Informasi Sistem POS
+                    <Info className="w-5 h-5 text-[#10B981]" /> Tentang Sistem POS
                   </h2>
-                  <p className="text-xs text-slate-400 mt-1">Detail versi perangkat lunak dan konektivitas.</p>
+                  <p className="text-xs text-slate-400 mt-1">Informasi versi dan lisensi aplikasi.</p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-4 bg-slate-950 border border-slate-800 rounded-xl">
-                    <div className="text-xs text-slate-400">Versi Aplikasi</div>
-                    <div className="text-lg font-bold text-slate-100 mt-1">v2.4.0-Beta</div>
-                  </div>
-
-                  <div className="p-4 bg-slate-950 border border-slate-800 rounded-xl">
-                    <div className="text-xs text-slate-400">Database Status</div>
-                    <div className="text-lg font-bold text-emerald-400 mt-1 flex items-center gap-2">
-                      <ShieldCheck className="w-5 h-5" /> Connected (Supabase)
-                    </div>
-                  </div>
-                </div>
-
-                <div className="p-4 bg-slate-950/40 border border-slate-800/80 rounded-xl space-y-2">
-                  <div className="text-xs font-semibold text-slate-300">Pembaruan Sistem</div>
-                  <p className="text-xs text-slate-400">Aplikasi POS Anda menggunakan versi terbaru dengan pembaruan keamanan otomatis.</p>
-                  <button
-                    type="button"
-                    onClick={() => showToast('Sistem sudah menggunakan versi terbaru.')}
-                    className="mt-2 inline-flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-200 rounded-lg transition"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5" /> Cek Pembaruan
-                  </button>
+                <div className="p-4 bg-[#070913] rounded-xl border border-slate-800 space-y-2 text-xs text-slate-300">
+                  <p><span className="font-semibold text-white">Versi Aplikasi:</span> v1.0.0</p>
+                  <p><span className="font-semibold text-white">Status Server:</span> Supabase Cloud Connected</p>
                 </div>
               </div>
             )}
 
-            {/* Bottom Save Bar */}
+            {/* SUBMIT ACTION BUTTON */}
             <div className="mt-8 pt-4 border-t border-slate-800 flex justify-end">
               <button
                 type="submit"
-                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-xl font-medium text-sm transition-all shadow-lg shadow-blue-600/30 active:scale-95"
+                disabled={isSaving}
+                className="flex items-center gap-2 bg-[#10B981] hover:bg-[#059669] disabled:opacity-50 text-white font-medium px-6 py-2.5 rounded-xl transition-all shadow-lg shadow-emerald-900/30 text-sm cursor-pointer"
               >
-                <Save className="w-4 h-4" /> Simpan Perubahan
+                {isSaving ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>Menyimpan...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    <span>Simpan Perubahan</span>
+                  </>
+                )}
               </button>
             </div>
-
           </form>
         </div>
-
       </div>
     </div>
   );

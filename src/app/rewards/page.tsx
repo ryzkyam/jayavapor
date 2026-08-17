@@ -24,20 +24,13 @@ interface RewardItem {
 
 export default function RewardsPage() {
   const [members, setMembers] = useState<CustomerMember[]>([]);
+  const [rewards, setRewards] = useState<RewardItem[]>([]); // ⚡ Dikosongkan agar murni ambil dari DB Supabase
   const [selectedMemberId, setSelectedMemberId] = useState("");
   const [searchMember, setSearchMember] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // 💡 STATE BARU: Untuk menampung jumlah poin custom yang mau ditambah
   const [pointsToAdd, setPointsToAdd] = useState<number | "">("");
-
-  const [rewards, setRewards] = useState<RewardItem[]>([
-    { id: "r1", title: "Free Premium Cotton", pointsRequired: 25, stock: 15, description: "Kapas organik anti-dryhit pas buat rewick." },
-    { id: "r2", title: "Free Prebuilt Alien Coil", pointsRequired: 50, stock: 8, description: "Sepasang coil alien flavour jos mleduk." },
-    { id: "r3", title: "Diskon Belanja Rp 50.000", pointsRequired: 100, stock: 99, description: "Potongan langsung untuk semua jenis liquid." },
-    { id: "r4", title: "Free Merchandise T-Shirt", pointsRequired: 200, stock: 3, description: "Kaos eksklusif merchandise Vapor Shop lo." },
-  ]);
 
   const [alertConfig, setAlertConfig] = useState<{
     show: boolean;
@@ -46,26 +39,56 @@ export default function RewardsPage() {
   }>({ show: false, message: "", type: "success" });
 
   useEffect(() => {
-    fetchCustomers();
+    fetchInitialData();
   }, []);
 
-  async function fetchCustomers() {
-    setIsLoading(true);
-    try {
-      const { data, error } = await supabase
-        .from("Customer")
-        .select("*")
-        .order("name", { ascending: true });
-      
-      if (error) throw error;
-      setMembers(data || []);
-    } catch (err) {
-      console.error(err);
-      triggerAlert("Gagal memuat data pelanggan", "error");
-    } finally {
-      setIsLoading(false);
+  // ⚡ FETCH KEDUA TABEL SEKALIGUS (Customer & RewardCatalog)
+async function fetchInitialData() {
+  setIsLoading(true);
+  try {
+    // 1. Fetch Customer dan RewardCatalog dari Supabase
+    const [customerRes, rewardRes] = await Promise.all([
+      supabase.from("Customer").select("*").order("name", { ascending: true }),
+      supabase.from("RewardCatalog").select("*")
+    ]);
+
+    if (customerRes.error) console.error("Customer Fetch Error:", customerRes.error);
+    setMembers(customerRes.data || []);
+
+    let rewardItems: RewardItem[] = [];
+
+    // 2. Jika ada data dari Supabase tabel RewardCatalog
+    if (rewardRes.data && rewardRes.data.length > 0) {
+      rewardItems = rewardRes.data.map((item: any) => ({
+        id: item.id || String(Math.random()),
+        title: item.title || item.name || "Voucher Diskon",
+        pointsRequired: Number(item.pointsRequired ?? item.points_required ?? item.points ?? 0),
+        stock: item.stock ?? item.stok ?? 999, // Fallback ke 999 jika setting diskon tidak pakai stok
+        description: item.description || `Diskon Rp ${(item.discountValue || item.discount_value || 0).toLocaleString("id-ID")}`
+      }));
+    } else {
+      // 3. FALLBACK: Jika Setting menyimpan ke LocalStorage
+      const localData = localStorage.getItem("reward_catalog") || localStorage.getItem("membership_rewards");
+      if (localData) {
+        const parsed = JSON.parse(localData);
+        rewardItems = parsed.map((item: any, idx: number) => ({
+          id: item.id || `local_${idx}`,
+          title: item.title || item.name || item.namaReward || "Voucher Diskon",
+          pointsRequired: Number(item.pointsRequired || item.points || item.jumlahPoin || 0),
+          stock: item.stock ?? 999,
+          description: item.description || (item.discountValue ? `Diskon Rp ${Number(item.discountValue).toLocaleString("id-ID")}` : "Voucher Penukaran Poin")
+        }));
+      }
     }
+
+    setRewards(rewardItems);
+  } catch (err: any) {
+    console.error("Fetch Data Error:", err);
+    triggerAlert(`Gagal memuat data: ${err.message || 'Error tidak diketahui'}`, "error");
+  } finally {
+    setIsLoading(false);
   }
+}
 
   function triggerAlert(message: string, type: "success" | "error" = "success") {
     setAlertConfig({ show: true, message, type });
@@ -83,10 +106,7 @@ export default function RewardsPage() {
     return members.filter((m) => m.name.toLowerCase().includes(searchMember.toLowerCase()));
   }, [members, searchMember]);
 
-
-  // ========================================================
-  // ⚡ FUNGSI UTAMA BARU: UNTUK MENAMBAH POIN CUSTOMER
-  // ========================================================
+  // FUNGSI MANIPULASI/SUNTIK POIN MANUAL
   async function handleAddPointsManual(e: React.FormEvent) {
     e.preventDefault();
     if (!selectedMemberId || !currentSelectedMember) {
@@ -100,7 +120,6 @@ export default function RewardsPage() {
     try {
       const totalPoinBaru = currentSelectedMember.points + Number(pointsToAdd);
 
-      // 1. Update kolom 'points' di tabel Customer
       const { error: updateError } = await supabase
         .from("Customer")
         .update({ points: totalPoinBaru, updatedAt: new Date().toISOString() })
@@ -108,7 +127,6 @@ export default function RewardsPage() {
 
       if (updateError) throw updateError;
 
-      // 2. Catat riwayat penambahan ke tabel PointLog (Sesuai skema image_190d53.png)
       const generatedLogId = "log_" + Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
       const { error: logError } = await supabase
         .from("PointLog")
@@ -116,9 +134,9 @@ export default function RewardsPage() {
           {
             id: generatedLogId,
             customerId: selectedMemberId,
-            transactionId: null, // Null karena ini suntik poin manual via admin, bukan dari transaksi belanja
-            points: Number(pointsToAdd), // Nilai positif karena menambah poin
-            action: "EARNED", // Menandakan poin masuk (sesuaikan dengan tipe PointAction enum lo)
+            transactionId: null,
+            points: Number(pointsToAdd),
+            action: "EARNED",
             description: `Suntik poin manual oleh Admin/Kasir`,
           }
         ]);
@@ -126,8 +144,8 @@ export default function RewardsPage() {
       if (logError) console.warn("Gagal mencatat log:", logError);
 
       triggerAlert(`Sukses menambah +${pointsToAdd} Pts ke member ${currentSelectedMember.name}!`, "success");
-      setPointsToAdd(""); // Reset field input
-      fetchCustomers();   // Refresh data di layar
+      setPointsToAdd("");
+      fetchInitialData();
     } catch (err: any) {
       console.error(err);
       triggerAlert(`Gagal menambahkan poin: ${err.message}`, "error");
@@ -136,8 +154,7 @@ export default function RewardsPage() {
     }
   }
 
-
-  // Fungsi Eksekusi Penukaran Poin (Redeem)
+  // ⚡ FUNGSI REDEEM REWARD (DENGAN SINKRONISASI STOK KE DATABASE SUPABASE)
   async function handleRedeemReward(reward: RewardItem) {
     if (!selectedMemberId || !currentSelectedMember) return triggerAlert("Pilih member terlebih dahulu!", "error");
     if (currentSelectedMember.points < reward.pointsRequired) return triggerAlert("Poin tidak cukup!", "error");
@@ -149,14 +166,25 @@ export default function RewardsPage() {
     setIsProcessing(true);
     try {
       const sisaPoinBaru = currentSelectedMember.points - reward.pointsRequired;
+      const sisaStokBaru = reward.stock - 1;
 
-      const { error: updateError } = await supabase
+      // 1. Potong Poin Customer
+      const { error: customerError } = await supabase
         .from("Customer")
         .update({ points: sisaPoinBaru, updatedAt: new Date().toISOString() })
         .eq("id", selectedMemberId);
 
-      if (updateError) throw updateError;
+      if (customerError) throw customerError;
 
+      // 2. Potong Stok Hadiah di RewardCatalog Supabase
+      const { error: rewardError } = await supabase
+        .from("RewardCatalog")
+        .update({ stock: sisaStokBaru })
+        .eq("id", reward.id);
+
+      if (rewardError) throw rewardError;
+
+      // 3. Catat Riwayat ke PointLog
       const generatedLogId = "log_" + Math.random().toString(36).substring(2, 11) + Date.now().toString(36);
       await supabase
         .from("PointLog")
@@ -165,18 +193,17 @@ export default function RewardsPage() {
             id: generatedLogId,
             customerId: selectedMemberId,
             transactionId: null,
-            points: -reward.pointsRequired, // Nilai minus untuk redeem
-            action: "REDEEM", 
+            points: -reward.pointsRequired,
+            action: "REDEEM",
             description: `Penukaran reward: ${reward.title}`,
           }
         ]);
 
-      setRewards((prev) => prev.map((r) => (r.id === reward.id ? { ...r, stock: r.stock - 1 } : r)));
       triggerAlert(`Berhasil menukarkan ${reward.title}!`, "success");
-      fetchCustomers();
+      fetchInitialData(); // Refresh UI secara utuh
     } catch (err: any) {
       console.error(err);
-      triggerAlert("Gagal memproses penukaran", "error");
+      triggerAlert(`Gagal memproses penukaran: ${err.message}`, "error");
     } finally {
       setIsProcessing(false);
     }
@@ -202,14 +229,23 @@ export default function RewardsPage() {
       )}
 
       {/* HEADER */}
-      <div className="mb-8">
-        <p className="text-xs uppercase tracking-[0.3em] text-emerald-400">CRM Gamification</p>
-        <h1 className="text-3xl font-light">Rewards & Loyalty Points</h1>
+      <div className="mb-8 flex justify-between items-end">
+        <div>
+          <p className="text-xs uppercase tracking-[0.3em] text-emerald-400">CRM Gamification</p>
+          <h1 className="text-3xl font-light">Rewards & Loyalty Points</h1>
+        </div>
+        <button 
+          onClick={fetchInitialData}
+          disabled={isLoading}
+          className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-lg border border-slate-700 transition"
+        >
+          {isLoading ? "Refreshing..." : "🔄 Sync Data"}
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
         
-        {/* PANEL UTAMA: PANEL KASIR (PILIH MEMBER, MONITORING, DAN TAMBAH POIN) */}
+        {/* PANEL UTAMA: PANEL KASIR */}
         <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-6 backdrop-blur-sm lg:col-span-1 space-y-6">
           <div>
             <h2 className="text-lg font-medium text-slate-200 mb-4 flex items-center gap-2">
@@ -230,7 +266,7 @@ export default function RewardsPage() {
                   value={selectedMemberId}
                   onChange={(e) => {
                     setSelectedMemberId(e.target.value);
-                    setPointsToAdd(""); // Reset input pas ganti member
+                    setPointsToAdd("");
                   }}
                   className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-slate-100 outline-none focus:border-emerald-500 cursor-pointer"
                 >
@@ -271,9 +307,7 @@ export default function RewardsPage() {
             </div>
           </div>
 
-          {/* ========================================================
-              🛠️ UI FORM BARU: SUNTIK/TAMBAH POIN CUSTOM SECARA MANUAL
-              ======================================================== */}
+          {/* FORM SUNTIK POIN MANUAL */}
           {currentSelectedMember && (
             <div className="border-t border-slate-800/80 pt-5 animate-fade-in">
               <h3 className="text-xs uppercase tracking-wider text-emerald-400 font-bold mb-3">➕ Suntik / Tambah Poin Manual</h3>
@@ -309,6 +343,10 @@ export default function RewardsPage() {
           {isLoading ? (
             <div className="text-center text-slate-500 py-20 animate-pulse text-sm tracking-wider">
               MEMUAT KATALOG HADIAH...
+            </div>
+          ) : rewards.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-slate-800 p-10 text-center text-slate-500 text-sm">
+              Belum ada item hadiah yang ditambahkan. Silakan tambahkan lewat Halaman Setting.
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

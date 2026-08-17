@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { supabase } from "@/lib/supabase";
- 
+import { useRouter } from "next/navigation"; // ➕ DITAMBAHKAN UNTUK ROUTING LOGOUT
 import Link from "next/link";
 
 interface Product {
@@ -28,6 +28,8 @@ interface CustomerMember {
 }
 
 export default function POSPage() {
+  const router = useRouter(); // ➕ DITAMBAHKAN UNTUK ROUTING LOGOUT
+
   const [products, setProducts] = useState<Product[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -272,11 +274,23 @@ export default function POSPage() {
       triggerAlert(`Gagal memproses transaksi: ${err.message || err}`, "error");
     } finally {
       setIsCheckoutProcessing(false);
-    }
+    } 
   }
 
+  // ➕ HANDLER BARU: LOGOUT
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) throw error;
+      localStorage.clear();
+      router.push("/admin/login");
+    } catch (err: any) {
+      console.error("Gagal logout:", err.message);
+    }
+  };
+
   const menus = [
-     { label: "Tambah Produk", href: "/dashboard" },
+    { label: "Tambah Produk", href: "/dashboard" },
     { label: "Members", href: "/members" },
     { label: "Rewards & Points", href: "/rewards" },
     { label: "Product Catalog", href: "/catalog" },
@@ -285,9 +299,8 @@ export default function POSPage() {
     { label: "Riwatat Transaksi", href: "/admin/transactions" },
     { label: "Retention", href: "/retention" },
     { label: "Settings", href: "/settings" },
-     
+    { label: "Logout", action: handleLogout }, // ➕ DIUBAH AGAR MEMANGGIL HANDLER LOGOUT
   ];
-
   return (
     <div className="flex h-screen overflow-hidden bg-gradient-to-b from-slate-950 via-slate-900 to-black text-slate-100 font-sans antialiased relative">
       
@@ -308,23 +321,49 @@ export default function POSPage() {
       )}
 
       {/* Sidebar Navigation */}
-      <aside className={`fixed lg:relative z-50 w-72 h-full bg-slate-950/95 backdrop-blur-xl border-r border-slate-800 p-6 flex flex-col justify-between transition-transform duration-300 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
-        <div>
-          <div className="flex items-center gap-3 mb-12 px-2">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">⚡</div>
-            <div>
-              <h1 className="text-sm font-semibold tracking-[0.2em] uppercase">Jaya Vapor</h1>
-              <p className="text-[10px] uppercase tracking-widest text-slate-500">CRM & POS System</p>
-            </div>
-          </div>
-          <nav className="space-y-2">
-            {menus.map((item) => (
-              <Link key={item.label} href={item.href} className={`block px-4 py-3 rounded-xl border text-[11px] uppercase tracking-widest transition-all duration-300 ${item.href === "/admin/pos" ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400" : "border-transparent text-slate-400 hover:border-slate-800 hover:bg-slate-900/60 hover:text-slate-100"}`}>{item.label}</Link>
-            ))}
-          </nav>
-        </div>
-      </aside>
+  {/* Sidebar Navigation */}
+<aside className={`fixed lg:relative z-50 w-72 h-full bg-slate-950/95 backdrop-blur-xl border-r border-slate-800 p-6 flex flex-col justify-between transition-transform duration-300 ${isSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
+  <div>
+    <div className="flex items-center gap-3 mb-12 px-2">
+      <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-emerald-500/20 bg-emerald-500/10 text-emerald-400">⚡</div>
+      <div>
+        <h1 className="text-sm font-semibold tracking-[0.2em] uppercase">Jaya Vapor</h1>
+        <p className="text-[10px] uppercase tracking-widest text-slate-500">CRM & POS System</p>
+      </div>
+    </div>
+    <nav className="space-y-2">
+      {menus.map((item) => {
+        // Jika item memiliki action (seperti Logout), render sebagai <button>
+        if (item.action) {
+          return (
+            <button
+              key={item.label}
+              onClick={item.action}
+              className="w-full text-left px-4 py-3 rounded-xl border border-transparent text-[11px] uppercase tracking-widest text-rose-400 hover:border-rose-500/20 hover:bg-rose-500/10 transition-all duration-300 cursor-pointer"
+            >
+              {item.label}
+            </button>
+          );
+        }
 
+        // Jika item navigasi biasa, render sebagai <Link>
+        return (
+          <Link
+            key={item.label}
+            href={item.href || "#"}
+            className={`block px-4 py-3 rounded-xl border text-[11px] uppercase tracking-widest transition-all duration-300 ${
+              item.href === "/admin/pos"
+                ? "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                : "border-transparent text-slate-400 hover:border-slate-800 hover:bg-slate-900/60 hover:text-slate-100"
+            }`}
+          >
+            {item.label}
+          </Link>
+        );
+      })}
+    </nav>
+  </div>
+</aside>
       {isSidebarOpen && <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 lg:hidden" onClick={() => setIsSidebarOpen(false)} />}
 
       {/* Main Catalog Area */}
