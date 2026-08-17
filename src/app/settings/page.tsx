@@ -75,8 +75,8 @@ export default function SettingsPage() {
   // --- DUMMY STATES ---
   const [store, setStore] = useState<StoreData>({
     name: 'Jaya Vapor',
-    phone: '081234567890',
-    address: 'Jl. Sudirman No. 45, Jakarta Selatan',
+    phone: '081943766802',
+    address: 'Jl. KH. Nawawi no58, RT.03/RW.02, Cirimekar, Kec. Cibinong, Kabupaten Bogor, Jawa Barat 16917',
     receiptHeader: 'Selamat Datang di Jaya Vapor!',
     receiptFooter: 'Terima kasih atas kunjungan Anda 🙏',
   });
@@ -590,7 +590,7 @@ const handleSave = async (e: React.FormEvent) => {
               </div>
             )}
 
-            {/* 6. TENTANG SISTEM */}
+             {/* 6. TENTANG SISTEM */}
             {activeTab === 'system' && (
               <div className="space-y-6">
                 <div>
